@@ -1,0 +1,41 @@
+{
+  "OpcUa": {
+    "EndpointUrl": "opc.tcp://localhost:62541/UA/IgnitionOPCUAServer",
+    "SecurityMode": "None",
+    "SecurityPolicy": "None",
+    "Username": "",
+    "Password": "",
+    "NodeIds": {
+      "Heartbeat": "ns=1;s=[default]HeartBeat/HeartBeat",
+      "HeartbeatAgeSeconds": "ns=1;s=[default]HeartBeat/Heartbeat_Age_Seconds"
+    },
+    "Subscription": {
+      "Enabled": true,
+      "PublishingIntervalMs": 1000,
+      "SamplingIntervalMs": 1000,
+      "QueueSize": 2
+    },
+    "Polling": {
+      "Enabled": false,
+      "IntervalMs": 1000
+    }
+  },
+  "HeartbeatRules": {
+    "ExpectedPeriodMs": 1000,
+    "LateThresholdMs": 3000,
+    "StallThresholdMs": 10000
+  },
+  "Publisher": {
+    "Kind": "Multi", 
+    "Targets": [
+      {
+        "Type": "Console"
+      },
+      {
+        "Type": "Http",
+        "EndpointUrl": "https://<your-azure-function-or-iothub-endpoint>",
+        "AuthHeader": "Bearer <your-token-or-SAS-key>"
+      }
+    ]
+  }
+}
