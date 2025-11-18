@@ -32,6 +32,7 @@ IgnitionHeartbeatMonitor/
 📄 Full documentation here:  
 👉 **[HeartBeatContracts.md](src/PipeLine/HeartBeatContracts.md)**
 
+
 This describes:
 
 - `TagValue<T>`
@@ -47,33 +48,32 @@ This describes:
 # ❤️ Heartbeat Generation in Ignition
 
 ## 1️⃣ Create HeartBeat tag  
-![Heartbeat Tag](Ignition/HeartBeatTag.png)
+![HeartBeat Tag](Ignition/HeartBeatTag.png)
 
 ---
 
 ## 2️⃣ Create Gateway Timer Script  
-![Timer Script](Ignition/HeartBeatTag1.png)
+![Gateway Timer Script](Ignition/HeartBeatTag1.png)
 
 ---
 
 ## 3️⃣ Create Heartbeat_Age_Seconds  
-![Age Seconds](Ignition/HeartBeatTag2.png)
+![Heartbeat Age Tag](Ignition/HeartBeatTag2.png)
 
 ---
 
 ## 4️⃣ Add Alarm Configuration  
-![Alarm Config](Ignition/HeartBeatTag3.png)
+![Heartbeat Alarm](Ignition/HeartBeatTag3.png)
 
 ---
 
 ## 5️⃣ Expose Tag Providers (OPC UA Settings)  
-![Expose Tag Providers](Ignition/HeartBeatTag4.png)
+![OPC UA Expose Providers](Ignition/HeartBeatTag4.png)
 
 ---
 
 ## 6️⃣ Validate Tags via OPC Quick Client  
-![Quick Client 1](Ignition/HeartBeatTag5.png)  
-![Quick Client 2](Ignition/HeartBeatTag6.png)
+![Quick Client](Ignition/HeartBeatTag5.png)
 
 ---
 
