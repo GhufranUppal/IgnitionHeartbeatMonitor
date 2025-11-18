@@ -1,15 +1,7 @@
 ﻿# 🚦 Ignition Heartbeat Monitor (C# + OPC UA)
 ### *(Work in Progress — More Sections Coming Soon)*
 
-This repository contains a **C# application** designed to monitor an **Ignition Gateway heartbeat** using **OPC UA subscriptions**.  
-The solution provides a foundation for building a reliable health-monitoring pipeline that can detect:
-
-- Late heartbeats  
-- Stalled / missing heartbeats  
-- Gateway or tag failure  
-- Communication interruptions  
-
-The project also includes the ability to publish heartbeat results to multiple targets (Console, Azure Function, IoT Hub, etc.).
+This repository contains a **C# application** designed to monitor an **Ignition Gateway heartbeat** using **OPC UA subscriptions**.
 
 ---
 
@@ -19,10 +11,10 @@ The project also includes the ability to publish heartbeat results to multiple t
 IgnitionHeartbeatMonitor/
 │
 ├── config/
-│     ├── apps.json           # Application configuration (OPC UA nodes, rules, publishers)
-│     └── apps.json.md        # Documentation for the JSON schema
+│     ├── apps.json
+│     └── apps.json.md
 │
-├── Ignition/                 # Screenshots documenting Ignition configuration
+├── Ignition/
 │     ├── HeartBeatTag.png
 │     ├── HeartBeatTag1.png
 │     ├── HeartBeatTag2.png
@@ -31,78 +23,143 @@ IgnitionHeartbeatMonitor/
 │     ├── HeartBeatTag5.png
 │     └── HeartBeatTag6.png
 │
-├── Program.cs                # Entry point for the C# heartbeat client
+├── Program.cs
 ├── IgnitionHeartbeatMonitor.csproj
-└── Readme.md                 # Project documentation (this file)
+└── Readme.md
 ```
 
 ---
 
 # 🧩 Solution Overview
 
-The solution consists of **three coordinated pieces**:
+The solution consists of **three coordinated pieces**.
 
 ---
 
-## **1. Heartbeat Generation in Ignition**
+# 🔹 1. Heartbeat Generation in Ignition
 
-Inside Ignition:
-
-- A boolean memory tag `[default]HeartBeat/HeartBeat` is toggled every second.
-- The toggle is driven by a **Gateway Timer Script**.
-- An expression tag `[default]HeartBeat/Heartbeat_Age_Seconds` computes seconds since the last update.
-- An alarm is triggered if the age exceeds a configured threshold.
-
-This provides a stable internal heartbeat signal for external systems.
+This section documents how the Ignition Gateway produces a reliable heartbeat.
 
 ---
 
-## **2. OPC UA Exposure**
+## **1.1 Create the HeartBeat Tag**
 
-Ignition’s built-in OPC UA server is used to expose the tags externally.
+![HeartBeat Tag](Ignition/HeartBeatTag.png)
 
-### Required Setting  
+Create a boolean memory tag at:
+
+```
+[default]HeartBeat/HeartBeat
+```
+
+This tag toggles every second.
+
+---
+
+## **1.2 Implement Gateway Timer Script**
+
+![Gateway Timer Script](Ignition/HeartBeatTag1.png)
+
+The Gateway Timer Script toggles the Boolean heartbeat:
+
+```python
+tagPath = "[default]HeartBeat/HeartBeat"
+
+try:
+    currentValue = system.tag.readBlocking([tagPath])[0].value
+    newValue = not bool(currentValue)
+    system.tag.writeBlocking([tagPath], [newValue])
+except Exception as e:
+    system.util.getLogger("Heartbeat").error("Toggle failed: %s" % e)
+```
+
+Runs every 1000 ms.
+
+---
+
+## **1.3 Create Heartbeat_Age_Seconds Tag**
+
+![Heartbeat Age Tag](Ignition/HeartBeatTag2.png)
+
+Expression:
+
+```python
+dateDiff(
+    {[.]HeartBeat.Timestamp},
+    now(),
+    "second"
+)
+```
+
+This shows how long it has been since the last heartbeat.
+
+---
+
+## **1.4 Configure Heartbeat Alarm**
+
+![Heartbeat Alarm](Ignition/HeartBeatTag3.png)
+
+Alarm triggers when heartbeat stalls for more than **5 seconds**.
+
+---
+
+## **1.5 Enable OPC UA Tag Provider Exposure**
+
+![OPC UA Expose Providers](Ignition/HeartBeatTag4.png)
+
 Enable:
+```
+Expose Tag Providers
+```
+
+---
+
+## **1.6 Verify via OPC Quick Client**
+
+![Quick Client](Ignition/HeartBeatTag5.png)
+
+Your tags should appear under:
 
 ```
-Config → OPC UA → Settings → Advanced → Expose Tag Providers
+Tag Providers → default → HeartBeat
 ```
 
-Once enabled, the tags become accessible under:
+Final confirmation:
+
+![Final Quick Client](Ignition/HeartBeatTag6.png)
+
+---
+
+# 🔹 2. OPC UA Exposure
+
+Once enabled, tags are visible as:
 
 ```
 ns=1;s=[default]HeartBeat/HeartBeat
 ns=1;s=[default]HeartBeat/Heartbeat_Age_Seconds
 ```
 
-These NodeIds are consumed by the C# application.
-
 ---
 
-## **3. C# Heartbeat Monitoring Application**
+# 🔹 3. C# Monitoring Application
 
-The C# app performs the following:
+This application connects to Ignition’s OPC UA endpoint and monitors:
 
-- Connects to Ignition’s OPC UA server  
-- Subscribes to the heartbeat tag  
-- Monitors update frequency  
-- Compares observed timing with configured thresholds  
-- Publishes alerts or statuses  
-- Supports multiple publishers (console, HTTP, Azure)  
+- Heartbeat toggle rate  
+- Heartbeat age  
+- Late/stalled conditions  
 
-All behavior is controlled through the configuration file.
+Publishes results using configured targets.
 
 ---
 
 # 📝 apps.json Configuration
 
-The app is controlled using the JSON file located at:
-
 ```
 config/apps.json
 ```
 
-### Example:
+Contents:
 
 ```json
 {
@@ -146,51 +203,16 @@ config/apps.json
 }
 ```
 
-### 🔍 What this configuration controls
-
-| Section | Purpose |
-|--------|---------|
-| `OpcUa` | How the C# app connects to Ignition |
-| `NodeIds` | Which tags to monitor |
-| `Subscription` | Controls OPC UA behavior |
-| `HeartbeatRules` | Defines timing thresholds |
-| `Publisher` | Defines where output is sent |
-
----
-
-# 🖼️ Ignition Configuration (Screenshots Included)
-
-The `/Ignition/` folder contains documentation showing:
-
-- How to create the **heartbeat tag**
-- How to add the **age expression**
-- How to configure the **gateway timer script**
-- How to create the **alarm**
-- How to enable **Expose Tag Providers**
-- How to test tags in **OPC Quick Client**
-
-These screenshots guide you step-by-step.
-
 ---
 
 # 🚧 Work in Progress
 
-This repository is **actively evolving**.  
 Upcoming additions:
 
-- Implementation of `IgnitionOpcUaClient.cs`
-- Cloud publishing pipeline
-- Architecture diagrams
-- Full setup guide
-- Test suite
-- Logging framework
-- Packaging instructions
-
-If you want any of these next, just ask.
-
----
-
-# ✔️ Getting Started (Coming Soon)
-A detailed running guide will be added after the OPC client class is included.
+- OPC UA Client implementation  
+- Publisher pipeline  
+- Azure integration  
+- Architecture diagrams  
+- Full "Getting Started" guide  
 
 ---
