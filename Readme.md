@@ -1,7 +1,14 @@
 ﻿# 🚦 Ignition Heartbeat Monitor (C# + OPC UA)
 ### *(Work in Progress — More Sections Coming Soon)*
 
-This repository contains a **C# application** designed to monitor an **Ignition Gateway heartbeat** using **OPC UA subscriptions**.
+This repository contains a **C# application** designed to monitor the operational health of an **Ignition SCADA Gateway** using **OPC UA heartbeat signals**.
+
+It continuously evaluates two key tags exposed through Ignition:
+
+- `HeartBeat` – a boolean tag toggled every second  
+- `Heartbeat_Age_Seconds` – expression tag showing how long since the last toggle  
+
+The C# application subscribes to these values, evaluates their state, transforms the data, and publishes the result to configurable output channels such as Console or Azure HTTP endpoints.
 
 ---
 
@@ -23,8 +30,11 @@ IgnitionHeartbeatMonitor/
 │     ├── HeartBeatTag5.png
 │     └── HeartBeatTag6.png
 │
+├── src/
+│     └── Pipeline/
+│           └── HeartBeatContracts.cs
+│
 ├── Program.cs
-├── IgnitionHeartbeatMonitor.csproj
 └── Readme.md
 ```
 
@@ -32,7 +42,41 @@ IgnitionHeartbeatMonitor/
 
 # 🧩 Solution Overview
 
-The solution consists of **three coordinated pieces**.
+The solution consists of **three coordinated layers**:
+
+1. **Ignition Heartbeat Generation** (tags, scripts, alarms)  
+2. **OPC UA Exposure** (Expose Tag Providers, NodeId access)  
+3. **C# Heartbeat Monitoring Pipeline** (reader → validator → transformer → publisher)
+
+---
+
+# 🔧 Heartbeat Pipeline Architecture
+
+This project uses a clean, modular pipeline pattern.
+
+```
+┌────────────┐      ┌──────────────┐      ┌───────────────┐      ┌──────────────┐
+│  ITagReader│  →   │  IValidator  │  →   │ ITransformer   │  →   │  IPublisher   │
+└────────────┘      └──────────────┘      └───────────────┘      └──────────────┘
+     │                    │                      │                       │
+Reads OPC UA tags   Applies heartbeat      Creates a normalized     Publishes event to
+(subscription/poll)   rules for timing       HeartbeatEvent          Console, HTTP, Azure
+                     and quality state
+```
+
+### 📌 Summary of Each Stage
+
+| Component | Description |
+|----------|-------------|
+| **ITagReader** | Streams tag updates using OPC UA subscriptions (or polling fallback). |
+| **IValidator** | Applies timing and quality rules → determines Ok / Late / Stalled / BadQuality. |
+| **ITransformer** | Converts raw values + state into `HeartbeatEvent`. |
+| **IPublisher** | Sends events to destinations: Console, HTTP, Azure Function, etc. |
+| **Domain DTOs** | `TagValue<T>`, `HeartbeatEvent`, `HeartbeatState`. |
+
+A detailed explanation of these interfaces is available in:
+
+📄 **`HeartBeatContracts.md`**
 
 ---
 
@@ -52,15 +96,13 @@ Create a boolean memory tag at:
 [default]HeartBeat/HeartBeat
 ```
 
-This tag toggles every second.
-
 ---
 
-## **1.2 Implement Gateway Timer Script**
+## **1.2 Gateway Timer Script**
 
 ![Gateway Timer Script](Ignition/HeartBeatTag1.png)
 
-The Gateway Timer Script toggles the Boolean heartbeat:
+Script toggles the heartbeat every 1000 ms:
 
 ```python
 tagPath = "[default]HeartBeat/HeartBeat"
@@ -73,11 +115,9 @@ except Exception as e:
     system.util.getLogger("Heartbeat").error("Toggle failed: %s" % e)
 ```
 
-Runs every 1000 ms.
-
 ---
 
-## **1.3 Create Heartbeat_Age_Seconds Tag**
+## **1.3 Create Heartbeat_Age_Seconds**
 
 ![Heartbeat Age Tag](Ignition/HeartBeatTag2.png)
 
@@ -91,40 +131,31 @@ dateDiff(
 )
 ```
 
-This shows how long it has been since the last heartbeat.
-
 ---
 
-## **1.4 Configure Heartbeat Alarm**
+## **1.4 Configure Alarm**
 
 ![Heartbeat Alarm](Ignition/HeartBeatTag3.png)
 
-Alarm triggers when heartbeat stalls for more than **5 seconds**.
+Triggers when heartbeat stalls or becomes too old.
 
 ---
 
-## **1.5 Enable OPC UA Tag Provider Exposure**
+## **1.5 Enable OPC UA Provider Exposure**
 
 ![OPC UA Expose Providers](Ignition/HeartBeatTag4.png)
 
-Enable:
+Turn on:
+
 ```
 Expose Tag Providers
 ```
 
 ---
 
-## **1.6 Verify via OPC Quick Client**
+## **1.6 Validate via OPC Quick Client**
 
 ![Quick Client](Ignition/HeartBeatTag5.png)
-
-Your tags should appear under:
-
-```
-Tag Providers → default → HeartBeat
-```
-
-Final confirmation:
 
 ![Final Quick Client](Ignition/HeartBeatTag6.png)
 
@@ -132,34 +163,38 @@ Final confirmation:
 
 # 🔹 2. OPC UA Exposure
 
-Once enabled, tags are visible as:
+Once exposure is enabled, tags are available as:
 
 ```
 ns=1;s=[default]HeartBeat/HeartBeat
 ns=1;s=[default]HeartBeat/Heartbeat_Age_Seconds
 ```
 
+These are referenced in the application’s `apps.json`.
+
 ---
 
 # 🔹 3. C# Monitoring Application
 
-This application connects to Ignition’s OPC UA endpoint and monitors:
+The C# application:
 
-- Heartbeat toggle rate  
-- Heartbeat age  
-- Late/stalled conditions  
+- Connects to Ignition OPC UA  
+- Subscribes to heartbeat tag updates  
+- Tracks heartbeat freshness  
+- Validates update timing  
+- Publishes events to chosen output channels  
 
-Publishes results using configured targets.
+Configuration-driven via **apps.json**.
 
 ---
 
 # 📝 apps.json Configuration
 
+Value found at:
+
 ```
 config/apps.json
 ```
-
-Contents:
 
 ```json
 {
@@ -205,14 +240,34 @@ Contents:
 
 ---
 
-# 🚧 Work in Progress
+# 🧱 Domain Contracts
 
-Upcoming additions:
+Detailed documentation:
 
-- OPC UA Client implementation  
-- Publisher pipeline  
-- Azure integration  
-- Architecture diagrams  
-- Full "Getting Started" guide  
+📄 **`HeartBeatContracts.md`**
+
+This file explains:
+
+- `TagValue<T>`
+- `HeartbeatEvent`
+- `HeartbeatState`
+- `ITagReader`
+- `IValidator`
+- `ITransformer`
+- `IPublisher`
 
 ---
+
+# 🚧 Work in Progress
+
+Planned additions:
+
+- OPC UA TagReader implementation  
+- Validator implementation  
+- Cloud publishing pipeline  
+- Azure integration workflow  
+- Full architecture diagram  
+- Getting Started Guide  
+
+---
+
