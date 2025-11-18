@@ -74,6 +74,10 @@ Reads OPC UA tags   Applies heartbeat      Creates a normalized     Publishes ev
 | **IPublisher** | Sends events to destinations: Console, HTTP, Azure Function, etc. |
 | **Domain DTOs** | `TagValue<T>`, `HeartbeatEvent`, `HeartbeatState`. |
 
+A detailed explanation of these interfaces is available in:
+
+📄 **`📄 [HeartBeatContracts.md](src/PipeLine/HeartBeatContracts.md)`**
+
 ---
 
 # 🔹 1. Heartbeat Generation in Ignition
