@@ -77,6 +77,9 @@ This describes:
 
 ---
 
+## 7️⃣ Allow Anonymous Access (for testing)
+![Allow Anonymous Access](Ignition/HeartBeatTag7.png)
+
 # 🧪 apps.json Configuration
 
 (This file drives OPC UA connection, rules, and publisher settings.)

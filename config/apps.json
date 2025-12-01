@@ -1,13 +1,20 @@
 {
   "OpcUa": {
-    "EndpointUrl": "opc.tcp://localhost:62541/UA/IgnitionOPCUAServer",
-    "SecurityMode": "None",
+    "EndpointUrl": "opc.tcp://localhost:62541",
+    "SecurityMode": "",
     "SecurityPolicy": "None",
     "Username": "",
     "Password": "",
+
+    /* NEW: root folder for client PKI stores (relative to .exe directory) */
+    "PkiRoot": "pki",
+
+    /* NEW: fine for lab work, you can set to false later */
+    "AutoAcceptUntrustedCertificates": true,
+
     "NodeIds": {
-      "Heartbeat": "ns=1;s=[default]HeartBeat/HeartBeat",
-      "HeartbeatAgeSeconds": "ns=1;s=[default]HeartBeat/Heartbeat_Age_Seconds"
+      "Heartbeat": "nsu=urn:inductiveautomation:ignition:opcua:tags;svr=default]HeartBeat/HeartBeat",
+      "HeartbeatAgeSeconds": "nsu=urn:inductiveautomation:ignition:opcua:tags;svr=default]HeartBeat/Heartbeat_Age_Seconds"
     },
     "Subscription": {
       "Enabled": true,
@@ -26,7 +33,7 @@
     "StallThresholdMs": 10000
   },
   "Publisher": {
-    "Kind": "Multi", 
+    "Kind": "Multi",
     "Targets": [
       {
         "Type": "Console"
