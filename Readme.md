@@ -80,6 +80,19 @@ This describes:
 ## 7️⃣ Allow Anonymous Access (for testing)
 ![Allow Anonymous Access](Ignition/HeartBeatTag7.png)
 
+___
+
+## 8️⃣ Test Connection with Matrikon OPC UA Explorer
+![Matrikon OPC UA Explorer](Ignition/HeartBeatTag8.png)
+
+![Matrikon OPC UA Explorer](Ignition/HeartBeatTag10.png)
+
+![Matrikon OPC UA Explorer](Ignition/HeartBeatTag9.png)
+
+![Matrikon OPC UA Explorer](Ignition/HeartBeatTag11.png)
+
+
+
 # 🧪 apps.json Configuration
 
 (This file drives OPC UA connection, rules, and publisher settings.)
@@ -87,7 +100,7 @@ This describes:
 ```json
 {
   "OpcUa": {
-    "EndpointUrl": "opc.tcp://localhost:62541/UA/IgnitionOPCUAServer",
+    "EndpointUrl": "opc.tcp://localhost:62541/discovery",
     "SecurityMode": "None",
     "SecurityPolicy": "None",
     "Username": "",
