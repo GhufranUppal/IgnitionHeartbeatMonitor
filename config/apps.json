@@ -1,6 +1,6 @@
 {
   "OpcUa": {
-    "EndpointUrl": "opc.tcp://localhost:62541",
+    "EndpointUrl": "opc.tcp://localhost:62541/discovery",
     "SecurityMode": "",
     "SecurityPolicy": "None",
     "Username": "",
