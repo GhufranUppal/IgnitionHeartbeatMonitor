@@ -91,6 +91,8 @@ ___
 
 ![Matrikon OPC UA Explorer](Ignition/HeartBeatTag11.png)
 
+![Matrikon OPC UA Explorer](Ignition/HeartBeatTag12.png)
+
 
 
 # 🧪 apps.json Configuration
