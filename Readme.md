@@ -1,7 +1,7 @@
 ﻿# 🔥 Ignition Heartbeat Monitor  
-Updated README with **working screenshot links** and **working link to HeartBeatContracts.md**.
 
----
+## Overview
+The Ignition Heartbeat Monitor provides a robust mechanism for ensuring continuous health monitoring of Building Automation Systems (BAS) and telemetry pipelines by leveraging Ignition SCADA as the central platform. It uses OPC UA subscriptions to track heartbeat tags from connected devices, validating system connectivity and operational status in real time. This solution integrates with Azure Event Hub for cloud-based telemetry publishing, enabling centralized visibility, proactive alerting, and analytics across multiple sites. By implementing PKI-based security for OPC UA communication, the monitor ensures encrypted and trusted data exchange, reducing downtime risks and supporting compliance
 
 ## 📁 Repository Structure
 
