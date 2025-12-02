@@ -8,9 +8,16 @@ Updated README with **working screenshot links** and **working link to HeartBeat
 ```
 IgnitionHeartbeatMonitor/
 ├── Readme.md
+├── SECURITY_CONFIG.md
+├── .gitignore
+├── .gitattributes
+├── IgnitionHeartbeatMonitor.csproj
+├── Program.cs
+│
 ├── config/
 │   ├── apps.json
 │   └── apps.json.md
+│
 ├── Ignition/
 │   ├── HeartBeatTag.png
 │   ├── HeartBeatTag1.png
@@ -18,12 +25,26 @@ IgnitionHeartbeatMonitor/
 │   ├── HeartBeatTag3.png
 │   ├── HeartBeatTag4.png
 │   ├── HeartBeatTag5.png
-│   └── HeartBeatTag6.png
+│   ├── HeartBeatTag6.png
+│   ├── HeartBeatTag7.png
+│   ├── HeartBeatTag8.png
+│   ├── HeartBeatTag9.png
+│   ├── HeartBeatTag10.png
+│   ├── HeartBeatTag11.png
+│   └── HeartBeatTag12.png
+│
 ├── src/
+│   ├── Implementation/
+│   │   └── opcUAReader.cs
+│   │
 │   └── PipeLine/
-│        ├── HeartBeatContracts.cs
-│        └── HeartBeatContracts.md
-└── Program.cs
+│       └── pki/
+│           ├── issuers/
+│           ├── own/
+│           ├── rejected/
+│           └── trusted/
+
+
 ```
 
 ---
