@@ -28,31 +28,38 @@ Date: 28. August 2026 · Page 1
 
 ## Table of Contents
 
-1. [Introduction](#1-introduction)
-   - 1.1 [Document Purpose](#11-document-purpose)
-   - 1.2 [Glossary](#12-glossary)
-2. [System Overview](#2-system-overview)
-   - 2.1 [Software Architecture](#21-software-architecture)
-   - 2.2 [Layered View](#22-layered-view)
-   - 2.3 [Data Flow](#23-data-flow)
-   - 2.4 [Repository Structure](#24-repository-structure)
-3. [The Heartbeat Interface](#3-the-heartbeat-interface)
-   - 3.1 [Heartbeat Tags](#31-heartbeat-tags)
-   - 3.2 [Configuration](#32-configuration)
-   - 3.3 [Domain Contracts](#33-domain-contracts)
-   - 3.4 [Running the Application](#34-running-the-application)
-4. [Non-Functional Requirements](#4-non-functional-requirements)
-   - 4.1 [OPC UA Version & Connection](#41-opc-ua-version--connection)
-   - 4.2 [Security](#42-security)
-   - 4.3 [Startup Behaviour](#43-startup-behaviour)
-   - 4.4 [System Supervision](#44-system-supervision)
-   - 4.5 [Logging](#45-logging)
-   - 4.6 [Performance](#46-performance)
-   - 4.7 [Software Prerequisites](#47-software-prerequisites)
-   - 4.8 [Roadmap](#48-roadmap)
-5. [Appendices](#5-appendices)
-   - 5.1 [Heartbeat Generation in Ignition](#51-heartbeat-generation-in-ignition)
-   - 5.2 [Sample Console Output](#52-sample-console-output)
+- [Concept](#concept)
+- [Ignition Heartbeat Monitor](#ignition-heartbeat-monitor)
+  - [OPC UA Heartbeat Client — Iteration 1](#opc-ua-heartbeat-client--iteration-1)
+    - [Document History](#document-history)
+  - [Table of Contents](#table-of-contents)
+    - [Figures](#figures)
+    - [Tables](#tables)
+  - [1 Introduction](#1-introduction)
+    - [1.1 Document Purpose](#11-document-purpose)
+    - [1.2 Glossary](#12-glossary)
+  - [2 System Overview](#2-system-overview)
+    - [2.1 Software Architecture](#21-software-architecture)
+    - [2.2 Layered View](#22-layered-view)
+    - [2.3 Data Flow](#23-data-flow)
+    - [2.4 Repository Structure](#24-repository-structure)
+  - [3 The Heartbeat Interface](#3-the-heartbeat-interface)
+    - [3.1 Heartbeat Tags](#31-heartbeat-tags)
+    - [3.2 Configuration](#32-configuration)
+    - [3.3 Domain Contracts](#33-domain-contracts)
+    - [3.4 Running the Application](#34-running-the-application)
+  - [4 Non-Functional Requirements](#4-non-functional-requirements)
+    - [4.1 OPC UA Version \& Connection](#41-opc-ua-version--connection)
+    - [4.2 Security](#42-security)
+    - [4.3 Startup Behaviour](#43-startup-behaviour)
+    - [4.4 System Supervision](#44-system-supervision)
+    - [4.5 Logging](#45-logging)
+    - [4.6 Performance](#46-performance)
+    - [4.7 Software Prerequisites](#47-software-prerequisites)
+    - [4.8 Roadmap](#48-roadmap)
+  - [5 Appendices](#5-appendices)
+    - [5.1 Heartbeat Generation in Ignition](#51-heartbeat-generation-in-ignition)
+    - [5.2 Sample Console Output](#52-sample-console-output)
 
 ### Figures
 
@@ -538,6 +545,8 @@ The following screenshots document how the heartbeat tag is created and exposed 
 
 ### 5.2 Sample Console Output
 
+**Healthy stream** — updates arriving with `Good` quality:
+
 ```text
 [OpcUaTagReader] Config = EndpointUrl: 'opc.tcp://localhost:62541/discovery'
 [Reader] Connected to OPC UA endpoint: opc.tcp://localhost:62541/discovery
@@ -545,4 +554,33 @@ The following screenshots document how the heartbeat tag is created and exposed 
 [App] ✅ Subscription is working. We are receiving messages from the OPC UA server.
 [Reader] UPDATE: node='...HeartBeat' value='42' ts='2026-08-28T14:03:01Z' quality='Good'
 [Reader] UPDATE: node='...Heartbeat_Age_Seconds' value='0' ts='2026-08-28T14:03:01Z' quality='Good'
+```
+
+**Non-`Good` quality** — a reading arrives but its quality is questionable or bad (printed in
+yellow). The value should not be trusted:
+
+```text
+[Reader] UPDATE: node='...HeartBeat' value='42' ts='2026-08-28T14:03:05Z' quality='Good'
+[Reader] UPDATE: node='...HeartBeat' value='' ts='2026-08-28T14:03:06Z' quality='Bad'
+[Reader] UPDATE: node='...HeartBeat' value='42' ts='2026-08-28T14:03:07Z' quality='Uncertain'
+```
+
+**Updates stop** — no messages are received (server unreachable, wrong Node IDs, or no network).
+The application prints a troubleshooting checklist:
+
+```text
+[App] Starting subscription test…
+[App] ⚠ No messages received from OPC UA server.
+[App] Check:
+[App]   1. Is the OPC UA server running at the configured endpoint?
+[App]   2. Are the NodeIds in config/apps.json correct?
+[App]   3. Do you have network connectivity to the server?
+[App] Stopped.
+```
+
+**OPC UA error** — the connection or subscription fails outright:
+
+```text
+[App] ❌ OPC UA error: BadNotConnected
+[App] Status Code: BadNotConnected
 ```
