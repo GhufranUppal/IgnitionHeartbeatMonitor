@@ -257,7 +257,7 @@ on OPC UA or any transport, which keeps it easy to test and reuse. It contains:
 Defining these contracts up front fixes the *shape* of the pipeline so later iterations plug in
 without redesign.
 
-**3. Implementation layer — `OpcUaTagReader`**
+**3. Retrieval layer (Implementation layer) — `OpcUaTagReader`**
 
 The concrete adapter to the outside world. It implements `ITagReader` and hides all OPC UA
 mechanics from the rest of the app:
@@ -498,7 +498,7 @@ Iteration 1 keeps things deliberately simple. Planned next steps, each a self-co
 
 | Iteration | Feature | Contracts Introduced |
 | --- | --- | --- |
-| **1 (done)** | Connect, subscribe, print heartbeat to console | `TagValue<T>`, `ITagReader` |
+| **1 (in Progress)** | Connect, subscribe, print heartbeat to console | `TagValue<T>`, `ITagReader` |
 | 2 | Health validation (Ok / Late / Stalled / BadQuality) | `IValidator`, `HeartbeatState` |
 | 3 | Shape readings into structured events | `ITransformer`, `HeartbeatEvent` |
 | 4 | Publish events (Console + HTTP endpoint) | `IPublisher` |
