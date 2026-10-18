@@ -17,9 +17,13 @@ public sealed class OpcUaTagReader : ITagReader
     private readonly int _pubMs;
     private readonly int _sampleMs;
     private readonly int _queue;
+    private readonly MessageSecurityMode _securityMode;
+    private readonly string _securityPolicy;
+    private readonly string _pkiRoot;
+    private readonly bool _autoAccept;
 
     private ApplicationConfiguration? _appConfig;
-    private Session? _session;
+    private ISession? _session;
     private Subscription? _subscription;
 
     public OpcUaTagReader(IConfiguration cfg)
@@ -36,6 +40,10 @@ public sealed class OpcUaTagReader : ITagReader
         _pubMs = int.Parse(sub["PublishingIntervalMs"] ?? "1000");
         _sampleMs = int.Parse(sub["SamplingIntervalMs"] ?? "1000");
         _queue = int.Parse(sub["QueueSize"] ?? "2");
+        _securityMode = Enum.TryParse<MessageSecurityMode>(opc["SecurityMode"], true, out var sm) ? sm : MessageSecurityMode.None;
+        _securityPolicy = opc["SecurityPolicy"] is { Length: > 0 } sp ? sp : "None";
+        _pkiRoot = opc["PkiRoot"] is { Length: > 0 } pki ? pki : "pki";
+        _autoAccept = !bool.TryParse(opc["AutoAcceptUntrustedCertificates"], out var aa) || aa;
 
         Console.WriteLine($"[OpcUaTagReader] Config = EndpointUrl: '{_endpointUrl}'");
         Console.WriteLine($"[OpcUaTagReader] Config = Publish/Sample: {_pubMs}/{_sampleMs} ms, Queue={_queue}");
@@ -63,10 +71,10 @@ public sealed class OpcUaTagReader : ITagReader
                 DiscardOldest = true
             };
 
-            // ✅ Correct notification handler
+            // ? Correct notification handler
             mi.Notification += (item, e) =>
             {
-                foreach (var change in item.DequeueValues())
+                if (e.NotificationValue is not MonitoredItemNotification change) return;
                 {
                     var dv = change.Value;
                     var ts = dv.SourceTimestamp == DateTime.MinValue
@@ -87,7 +95,7 @@ public sealed class OpcUaTagReader : ITagReader
         }
 
         _session.AddSubscription(_subscription);
-        // ✅ Use async create
+        // ? Use async create
         await _subscription.CreateAsync();
 
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -105,14 +113,6 @@ public sealed class OpcUaTagReader : ITagReader
                 {
                     while (channel.Reader.TryRead(out var next))
                     {
-                        Console.ForegroundColor = next.Quality.Contains("Good", StringComparison.OrdinalIgnoreCase)
-                            ? ConsoleColor.Green
-                            : ConsoleColor.Yellow;
-
-                        Console.WriteLine(
-                            $"[Reader] UPDATE: node='{next.NodeId}' value='{FormatValue(next.Value)}' ts='{next.ServerTimestamp:O}' quality='{next.Quality}'");
-                        Console.ResetColor();
-
                         yield return next;
                     }
                 }
@@ -128,22 +128,24 @@ public sealed class OpcUaTagReader : ITagReader
     {
         if (_session is { Connected: true }) return;
 
-        _appConfig = new ApplicationConfiguration
+        var application = new ApplicationInstance
         {
             ApplicationName = "IgnitionHeartbeatMonitor",
-            ApplicationType = ApplicationType.Client,
-            SecurityConfiguration = new SecurityConfiguration
-            {
-                AutoAcceptUntrustedCertificates = true, // dev/lab
-            },
-            ClientConfiguration = new ClientConfiguration()
+            ApplicationType = ApplicationType.Client
         };
 
-        // ✅ async validate
-        await _appConfig.ValidateAsync(ApplicationType.Client);
+        _appConfig = await application
+            .Build($"urn:{Utils.GetHostName()}:IgnitionHeartbeatMonitor", "uri:IgnitionHeartbeatMonitor")
+            .AsClient()
+            .AddSecurityConfiguration("CN=IgnitionHeartbeatMonitor, O=Lab", _pkiRoot)
+            .SetAutoAcceptUntrustedCertificates(_autoAccept)
+            .CreateAsync();
 
-        // ✅ fix argument order (all unnamed or all named)
-        var selectedEndpoint = CoreClientUtils.SelectEndpoint(_endpointUrl, false, 15000);
+        // Creates the client certificate in the PKI store if missing
+        await application.CheckApplicationInstanceCertificatesAsync(false);
+
+        var selectedEndpoint = await SelectEndpointAsync(ct);
+        Console.WriteLine($"[Reader] Selected endpoint: {selectedEndpoint.EndpointUrl} (Policy={selectedEndpoint.SecurityPolicyUri}, Mode={selectedEndpoint.SecurityMode})");
         var endpointConfig = EndpointConfiguration.Create(_appConfig);
         var endpoint = new ConfiguredEndpoint(null, selectedEndpoint, endpointConfig);
 
@@ -151,27 +153,44 @@ public sealed class OpcUaTagReader : ITagReader
         var identity = new UserIdentity(new AnonymousIdentityToken());
 
         // NOTE: If your package supports SessionFactory, prefer it.
-        _session = await Session.Create(
+        _session = await DefaultSessionFactory.Instance.CreateAsync(
             _appConfig,
             endpoint,
             false,
             "IgnitionHeartbeatMonitor",
             60000,
             identity,
-            null);
+            null,
+            ct);
 
         Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine($"[Reader] Connected to OPC UA endpoint: {_endpointUrl} (SecurityPolicy={selectedEndpoint.SecurityPolicyUri}, Mode={selectedEndpoint.SecurityMode})");
         Console.ResetColor();
     }
 
-    private static string FormatValue(object? v)
-        => v switch
+    private async Task<EndpointDescription> SelectEndpointAsync(CancellationToken ct)
+    {
+        using var discovery = DiscoveryClient.Create(_appConfig!, new Uri(_endpointUrl));
+        var endpoints = await discovery.GetEndpointsAsync(null, ct);
+
+        var match = endpoints.FirstOrDefault(e =>
+            e.SecurityMode == _securityMode &&
+            e.SecurityPolicyUri.EndsWith("#" + _securityPolicy, StringComparison.OrdinalIgnoreCase));
+
+        if (match is null)
         {
-            null => "null",
-            byte[] bytes => $"blob({bytes.Length})",
-            _ => v?.ToString() ?? "<null>"
-        };
+            var available = string.Join("; ", endpoints.Select(e => $"{e.SecurityMode}/{e.SecurityPolicyUri.Split('#').Last()}"));
+            throw new InvalidOperationException(
+                $"Server offers no endpoint with SecurityMode={_securityMode}, SecurityPolicy={_securityPolicy}. Available: {available}. " +
+                "Adjust OpcUa:SecurityMode/SecurityPolicy in config/apps.json or enable the policy on the Ignition gateway.");
+        }
+
+        // Keep the host the user configured (servers often advertise their hostname)
+        var cfgUri = new Uri(_endpointUrl);
+        var advertised = new UriBuilder(match.EndpointUrl) { Host = cfgUri.Host, Port = cfgUri.Port };
+        match.EndpointUrl = advertised.Uri.ToString();
+        return match;
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -196,3 +215,4 @@ public sealed class OpcUaTagReader : ITagReader
             // keep shutdown clean
         }
     }
+}

@@ -19,7 +19,7 @@ class Program
         {
             e.Cancel = true;
             cts.Cancel();
-            Console.WriteLine("[App] Ctrl+C received. Shutting down...");
+            Console.WriteLine("\n[App] Ctrl+C received. Shutting down...");
         };
 
         await using var reader = new OpcUaTagReader(cfg);
@@ -27,6 +27,38 @@ class Program
         Console.WriteLine("[App] Starting subscription test…");
         bool firstMessageSeen = false;
         bool errorOccurred = false;
+
+        var ageNodeId = cfg["OpcUa:NodeIds:HeartbeatAgeSeconds"];
+        TagValue<object>? age = null;
+        var lastLineLength = 0;
+
+        void ClearAgeLine()
+        {
+            Console.Write("\r" + new string(' ', lastLineLength) + "\r");
+            lastLineLength = 0;
+        }
+
+        void RenderAge()
+        {
+            var quality = age?.Quality ?? "-";
+            var good = quality.Contains("Good", StringComparison.OrdinalIgnoreCase);
+            var line = $"[Time since last heartbeat] {age?.Value?.ToString() ?? "--"} s | quality={quality}";
+
+            Console.ForegroundColor = good ? ConsoleColor.Green : ConsoleColor.Yellow;
+            Console.Write("\r" + line.PadRight(lastLineLength));
+            Console.ResetColor();
+            lastLineLength = line.Length;
+        }
+
+        void PrintHeartbeat(TagValue<object> hb)
+        {
+            ClearAgeLine();
+            var good = hb.Quality.Contains("Good", StringComparison.OrdinalIgnoreCase);
+            Console.ForegroundColor = good ? ConsoleColor.Green : ConsoleColor.Yellow;
+            Console.WriteLine($"[Heartbeat] value={hb.Value?.ToString() ?? "null"} ts={hb.ServerTimestamp.ToLocalTime():HH:mm:ss} quality={hb.Quality}");
+            Console.ResetColor();
+            if (age is not null) RenderAge();
+        }
 
         try
         {
@@ -39,7 +71,16 @@ class Program
                     Console.WriteLine("[App] ✅ Subscription is working. We are receiving messages from the OPC UA server.");
                     Console.ResetColor();
                 }
-                // The reader already prints every update; we can add more here if needed
+
+                if (tv.NodeId == ageNodeId)
+                {
+                    age = tv;
+                    RenderAge();
+                }
+                else
+                {
+                    PrintHeartbeat(tv);
+                }
             }
         }
         catch (OperationCanceledException) { /* normal on Ctrl+C */ }
@@ -79,7 +120,10 @@ class Program
         }
 
         // Keep console open so user can see the output
-        Console.WriteLine("\n[App] Press any key to exit...");
-        Console.ReadKey();
+        if (!Console.IsInputRedirected)
+        {
+            Console.WriteLine("\n[App] Press any key to exit...");
+            Console.ReadKey();
+        }
     }
 }

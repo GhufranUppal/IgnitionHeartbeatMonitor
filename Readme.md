@@ -48,6 +48,7 @@ Date: 28. August 2026 · Page 1
     - [3.2 Configuration](#32-configuration)
     - [3.3 Domain Contracts](#33-domain-contracts)
     - [3.4 Running the Application](#34-running-the-application)
+    - [3.5 Console Application](#35-console-application)
   - [4 Non-Functional Requirements](#4-non-functional-requirements)
     - [4.1 OPC UA Version \& Connection](#41-opc-ua-version--connection)
     - [4.2 Security](#42-security)
@@ -334,7 +335,9 @@ IgnitionHeartbeatMonitor/
 │   └── apps.json.md
 │
 ├── Ignition/                 # Setup screenshots (see Appendix 5.1)
-│   └── HeartBeatTag*.png
+│   ├── HeartBeatTag*.png
+│   └── Console/              # Console app screenshots (see §3.5)
+│       └── ConsoleAPP*.png
 │
 └── src/
     ├── Implementation/
@@ -368,13 +371,13 @@ section is required — other sections are reserved for the [Roadmap](#48-roadma
 {
   "OpcUa": {
     "EndpointUrl": "opc.tcp://localhost:62541/discovery",
-    "SecurityMode": "None",
-    "SecurityPolicy": "None",
+    "SecurityMode": "SignAndEncrypt",
+    "SecurityPolicy": "Basic256Sha256",
     "Username": "",
     "Password": "",
     "NodeIds": {
-      "Heartbeat": "ns=1;s=[default]HeartBeat/HeartBeat",
-      "HeartbeatAgeSeconds": "ns=1;s=[default]HeartBeat/Heartbeat_Age_Seconds"
+      "Heartbeat": "ns=2;s=[default]/HeartBeat/HeartBeat",
+      "HeartbeatAgeSeconds": "ns=2;s=[default]/HeartBeat/Heartbeat_Age_Seconds"
     },
     "Subscription": {
       "Enabled": true,
@@ -437,6 +440,26 @@ Full documentation: **[HeartBeatContracts.md](src/PipeLine/HeartBeatContracts.md
 > If no updates appear, the application prints a short checklist (endpoint reachable? Node IDs
 > correct? network connectivity?) to help with troubleshooting.
 
+### 3.5 Console Application
+
+The console shows the heartbeat on two kinds of lines:
+
+| Line | Behaviour |
+| --- | --- |
+| `[Heartbeat] value=… ts=… quality=…` | A **new line** is printed each time the `HeartBeat` tag changes (the gateway toggles it every 30 s). |
+| `[Time since last heartbeat] N s \| quality=…` | A **single line, redrawn in place** from `Heartbeat_Age_Seconds`, so it acts as a live counter. |
+
+Lines are green when quality is `Good` and yellow otherwise. The startup lines confirm the selected
+endpoint (`Basic256Sha256` / `SignAndEncrypt`), the subscription, and the monitored Node IDs.
+
+**Running — heartbeat lines with the live counter below:**
+
+![Console App — running](Ignition/Console/ConsoleAPP1.png)
+
+**After several heartbeats, then Ctrl+C — the app closes the subscription and session cleanly:**
+
+![Console App — heartbeat history and shutdown](Ignition/Console/ConsoleAPP2.png)
+
 ---
 
 ## 4 Non-Functional Requirements
@@ -449,10 +472,13 @@ the connection attempt fails and a diagnostic message is printed.
 
 ### 4.2 Security
 
-For Iteration 1 the application connects with **`SecurityMode = None`** and anonymous identity, which
-is appropriate for lab and development environments. Certificate-based (PKI) security is **not** part
-of this iteration and is planned for a later release; see **[SECURITY_CONFIG.md](SECURITY_CONFIG.md)**
-for the intended security model.
+For Iteration 1 the application connects with an **anonymous identity** over the endpoint the
+gateway offers. A default Ignition gateway only offers `SignAndEncrypt` / `Basic256Sha256`, so the
+client creates a self-signed certificate under `pki/` on first start. In the gateway, open
+**Config → OPC UA → Security → Client Certificates** and **Trust** the quarantined
+`IgnitionHeartbeatMonitor` certificate, then restart the app. If you enable the `None` policy on the
+gateway, set `SecurityMode`/`SecurityPolicy` to `None` in `config/apps.json`. See
+**[SECURITY_CONFIG.md](SECURITY_CONFIG.md)** for the intended security model.
 
 ### 4.3 Startup Behaviour
 
@@ -552,17 +578,18 @@ The following screenshots document how the heartbeat tag is created and exposed 
 [Reader] Connected to OPC UA endpoint: opc.tcp://localhost:62541/discovery
 [Reader] OPC UA subscription created at 1000ms. Monitored 2 nodes.
 [App] ✅ Subscription is working. We are receiving messages from the OPC UA server.
-[Reader] UPDATE: node='...HeartBeat' value='42' ts='2026-08-28T14:03:01Z' quality='Good'
-[Reader] UPDATE: node='...Heartbeat_Age_Seconds' value='0' ts='2026-08-28T14:03:01Z' quality='Good'
+[Heartbeat] value=False ts=13:23:02 quality=Good
+[Heartbeat] value=True ts=13:23:32 quality=Good
+[Time since last heartbeat] 9 s | quality=Good      <- redrawn in place
 ```
 
 **Non-`Good` quality** — a reading arrives but its quality is questionable or bad (printed in
 yellow). The value should not be trusted:
 
 ```text
-[Reader] UPDATE: node='...HeartBeat' value='42' ts='2026-08-28T14:03:05Z' quality='Good'
-[Reader] UPDATE: node='...HeartBeat' value='' ts='2026-08-28T14:03:06Z' quality='Bad'
-[Reader] UPDATE: node='...HeartBeat' value='42' ts='2026-08-28T14:03:07Z' quality='Uncertain'
+[Heartbeat] value=True ts=14:03:05 quality=Good
+[Heartbeat] value=null ts=14:03:06 quality=Bad
+[Heartbeat] value=True ts=14:03:07 quality=Uncertain
 ```
 
 **Updates stop** — no messages are received (server unreachable, wrong Node IDs, or no network).

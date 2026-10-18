@@ -1,8 +1,8 @@
-{
+﻿{
   "OpcUa": {
     "EndpointUrl": "opc.tcp://localhost:62541/discovery",
-    "SecurityMode": "",
-    "SecurityPolicy": "None",
+    "SecurityMode": "SignAndEncrypt",
+    "SecurityPolicy": "Basic256Sha256",
     "Username": "",
     "Password": "",
 
@@ -13,8 +13,8 @@
     "AutoAcceptUntrustedCertificates": true,
 
     "NodeIds": {
-      "Heartbeat": "nsu=urn:inductiveautomation:ignition:opcua:tags;svr=default]HeartBeat/HeartBeat",
-      "HeartbeatAgeSeconds": "nsu=urn:inductiveautomation:ignition:opcua:tags;svr=default]HeartBeat/Heartbeat_Age_Seconds"
+      "Heartbeat": "ns=2;s=[default]/HeartBeat/HeartBeat",
+      "HeartbeatAgeSeconds": "ns=2;s=[default]/HeartBeat/Heartbeat_Age_Seconds"
     },
     "Subscription": {
       "Enabled": true,
