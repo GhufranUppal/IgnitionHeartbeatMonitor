@@ -42,7 +42,7 @@ class Program
         {
             var quality = age?.Quality ?? "-";
             var good = quality.Contains("Good", StringComparison.OrdinalIgnoreCase);
-            var line = $"[Time since last heartbeat] {age?.Value?.ToString() ?? "--"} s | quality={quality}";
+            var line = $"Time since last Heartbeat {age?.Value?.ToString() ?? "--"} seconds";
 
             Console.ForegroundColor = good ? ConsoleColor.Green : ConsoleColor.Yellow;
             Console.Write("\r" + line.PadRight(lastLineLength));
@@ -54,8 +54,11 @@ class Program
         {
             ClearAgeLine();
             var good = hb.Quality.Contains("Good", StringComparison.OrdinalIgnoreCase);
+            var ts = hb.ServerTimestamp.ToLocalTime().ToString("HH:mm:ss");
             Console.ForegroundColor = good ? ConsoleColor.Green : ConsoleColor.Yellow;
-            Console.WriteLine($"[Heartbeat] value={hb.Value?.ToString() ?? "null"} ts={hb.ServerTimestamp.ToLocalTime():HH:mm:ss} quality={hb.Quality}");
+            Console.WriteLine(good
+                ? $"[Heartbeat] Heartbeat Received - Ignition Gateway Healthy | {ts}"
+                : $"[Heartbeat] Heartbeat Received - quality={hb.Quality} (not healthy) | {ts}");
             Console.ResetColor();
             if (age is not null) RenderAge();
         }
@@ -87,9 +90,22 @@ class Program
         catch (ServiceResultException srx)
         {
             errorOccurred = true;
+            var statusName = StatusCodes.GetBrowseName(srx.StatusCode);
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"[App] ❌ OPC UA error: {srx.Message}");
-            Console.WriteLine($"[App] Status Code: {srx.StatusCode}");
+            if (IsConnectionFailure(srx.StatusCode))
+            {
+                Console.WriteLine($"[App] ❌ Could not connect to the OPC UA server at {cfg["OpcUa:EndpointUrl"]}");
+                Console.WriteLine($"[App]    Reason: {statusName} (0x{srx.StatusCode:X8})");
+                Console.WriteLine("[App]    Check:");
+                Console.WriteLine("[App]      1. Is the Ignition gateway running and the OPC UA server module enabled?");
+                Console.WriteLine("[App]      2. Are the host and port in OpcUa:EndpointUrl (config/apps.json) correct?");
+                Console.WriteLine("[App]      3. Is a firewall blocking the port?");
+            }
+            else
+            {
+                Console.WriteLine($"[App] ❌ OPC UA error: {srx.Message}");
+                Console.WriteLine($"[App]    Status: {statusName} (0x{srx.StatusCode:X8})");
+            }
             Console.ResetColor();
         }
         catch (Exception ex)
@@ -126,4 +142,14 @@ class Program
             Console.ReadKey();
         }
     }
+
+    static bool IsConnectionFailure(uint code) => code is
+        StatusCodes.BadNotConnected or
+        StatusCodes.BadServerNotConnected or
+        StatusCodes.BadNoCommunication or
+        StatusCodes.BadCommunicationError or
+        StatusCodes.BadConnectionRejected or
+        StatusCodes.BadConnectionClosed or
+        StatusCodes.BadTcpEndpointUrlInvalid or
+        StatusCodes.BadTimeout;
 }

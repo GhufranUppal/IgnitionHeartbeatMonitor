@@ -134,12 +134,14 @@ public sealed class OpcUaTagReader : ITagReader
             ApplicationType = ApplicationType.Client
         };
 
+#pragma warning disable CS0618 // Obsolete overload kept: it creates the default PKI stores from a root path
         _appConfig = await application
             .Build($"urn:{Utils.GetHostName()}:IgnitionHeartbeatMonitor", "uri:IgnitionHeartbeatMonitor")
             .AsClient()
             .AddSecurityConfiguration("CN=IgnitionHeartbeatMonitor, O=Lab", _pkiRoot)
             .SetAutoAcceptUntrustedCertificates(_autoAccept)
             .CreateAsync();
+#pragma warning restore CS0618
 
         // Creates the client certificate in the PKI store if missing
         await application.CheckApplicationInstanceCertificatesAsync(false);

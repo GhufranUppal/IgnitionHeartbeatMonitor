@@ -1,7 +1,7 @@
 ﻿<div align="right">
 
 **Ignition Heartbeat Monitor**
-Date: 28. August 2026 · Page 1
+Date: 19. October 2026 · Page 1
 
 </div>
 
@@ -23,6 +23,7 @@ Date: 28. August 2026 · Page 1
 | Date | Version | Comment | Author |
 | --- | --- | --- | --- |
 | 28.08.2026 | 0.1 | Initial concept — simple console solution (connect, subscribe, print) | Ghufran Uppal |
+| 19.10.2026 | 0.2 | Simplified heartbeat and age output, readable connection-error message, updated console screenshots | Ghufran Uppal |
 
 ---
 
@@ -438,7 +439,9 @@ Full documentation: **[HeartBeatContracts.md](src/PipeLine/HeartBeatContracts.md
 4. Press **Ctrl+C** to stop; the application closes the subscription and session cleanly.
 
 > If no updates appear, the application prints a short checklist (endpoint reachable? Node IDs
-> correct? network connectivity?) to help with troubleshooting.
+> correct? network connectivity?) to help with troubleshooting. If the connection itself fails, it
+> prints the endpoint, the OPC UA status name and code, and a connection checklist (see
+> [§3.5](#35-console-application)).
 
 ### 3.5 Console Application
 
@@ -446,8 +449,8 @@ The console shows the heartbeat on two kinds of lines:
 
 | Line | Behaviour |
 | --- | --- |
-| `[Heartbeat] value=… ts=… quality=…` | A **new line** is printed each time the `HeartBeat` tag changes (the gateway toggles it every 30 s). |
-| `[Time since last heartbeat] N s \| quality=…` | A **single line, redrawn in place** from `Heartbeat_Age_Seconds`, so it acts as a live counter. |
+| `[Heartbeat] Heartbeat Received - Ignition Gateway Healthy \| HH:mm:ss` | A **new line** is printed each time the `HeartBeat` tag changes (the gateway toggles it every 30 s). If the quality is not `Good`, the line reads `Heartbeat Received - quality=… (not healthy)` instead. |
+| `Time since last Heartbeat N seconds` | A **single line, redrawn in place** from `Heartbeat_Age_Seconds`, so it acts as a live counter. |
 
 Lines are green when quality is `Good` and yellow otherwise. The startup lines confirm the selected
 endpoint (`Basic256Sha256` / `SignAndEncrypt`), the subscription, and the monitored Node IDs.
@@ -459,6 +462,14 @@ endpoint (`Basic256Sha256` / `SignAndEncrypt`), the subscription, and the monito
 **After several heartbeats, then Ctrl+C — the app closes the subscription and session cleanly:**
 
 ![Console App — heartbeat history and shutdown](Ignition/Console/ConsoleAPP2.png)
+
+**Connection failure — the gateway is not reachable or not communicating:**
+
+![Console App — connection failure](Ignition/Console/ConsoleAPP3.png)
+
+The error names the configured endpoint, the OPC UA status (name and hex code), and a checklist of
+the usual causes: gateway or OPC UA module not running, wrong host/port in `OpcUa:EndpointUrl`, or a
+firewall blocking the port.
 
 ---
 
@@ -492,9 +503,10 @@ The console output allows an operator to assess the system's health at a glance:
 
 | Indicator | Meaning |
 | --- | --- |
-| Continuous `UPDATE` lines with `Good` quality | The gateway is healthy and reachable. |
-| Updates stop or slow down | Possible stalled gateway, network issue, or failed device. |
-| Non-`Good` quality flagged in colour | The tag value is questionable or bad. |
+| Continuous `Heartbeat Received - Ignition Gateway Healthy` lines | The gateway is healthy and reachable. |
+| `Time since last Heartbeat` keeps growing | Updates stopped or slowed — possible stalled gateway, network issue, or failed device. |
+| `quality=… (not healthy)` in yellow | The tag value is questionable or bad. |
+| `Could not connect to the OPC UA server` | The session could not be established — see the printed status and checklist. |
 | Startup checklist printed | No messages received — connectivity or configuration problem. |
 
 *Table 6 — Supervision / Health Indicators*
@@ -575,21 +587,26 @@ The following screenshots document how the heartbeat tag is created and exposed 
 
 ```text
 [OpcUaTagReader] Config = EndpointUrl: 'opc.tcp://localhost:62541/discovery'
-[Reader] Connected to OPC UA endpoint: opc.tcp://localhost:62541/discovery
+[OpcUaTagReader] Config = Publish/Sample: 1000/1000 ms, Queue=2
+[App] Starting subscription test…
+[Reader] Selected endpoint: opc.tcp://localhost:62541/ (Policy=http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256, Mode=SignAndEncrypt)
+[Reader] Connected to OPC UA endpoint: opc.tcp://localhost:62541/discovery (SecurityPolicy=http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256, Mode=SignAndEncrypt)
 [Reader] OPC UA subscription created at 1000ms. Monitored 2 nodes.
+[Reader] Subscribed to NodeId: ns=2;s=[default]/HeartBeat/HeartBeat
+[Reader] Subscribed to NodeId: ns=2;s=[default]/HeartBeat/Heartbeat_Age_Seconds
 [App] ✅ Subscription is working. We are receiving messages from the OPC UA server.
-[Heartbeat] value=False ts=13:23:02 quality=Good
-[Heartbeat] value=True ts=13:23:32 quality=Good
-[Time since last heartbeat] 9 s | quality=Good      <- redrawn in place
+[Heartbeat] Heartbeat Received - Ignition Gateway Healthy | 11:10:45
+[Heartbeat] Heartbeat Received - Ignition Gateway Healthy | 11:11:16
+Time since last Heartbeat 20 seconds      <- redrawn in place
 ```
 
 **Non-`Good` quality** — a reading arrives but its quality is questionable or bad (printed in
 yellow). The value should not be trusted:
 
 ```text
-[Heartbeat] value=True ts=14:03:05 quality=Good
-[Heartbeat] value=null ts=14:03:06 quality=Bad
-[Heartbeat] value=True ts=14:03:07 quality=Uncertain
+[Heartbeat] Heartbeat Received - Ignition Gateway Healthy | 14:03:05
+[Heartbeat] Heartbeat Received - quality=Bad (not healthy) | 14:03:06
+[Heartbeat] Heartbeat Received - quality=Uncertain (not healthy) | 14:03:07
 ```
 
 **Updates stop** — no messages are received (server unreachable, wrong Node IDs, or no network).
@@ -605,9 +622,21 @@ The application prints a troubleshooting checklist:
 [App] Stopped.
 ```
 
-**OPC UA error** — the connection or subscription fails outright:
+**Connection failure** — the session cannot be established (see [§3.5](#35-console-application)):
 
 ```text
-[App] ❌ OPC UA error: BadNotConnected
-[App] Status Code: BadNotConnected
+[App] ❌ Could not connect to the OPC UA server at opc.tcp://localhost:62541/discovery
+[App]    Reason: BadNoCommunication (0x80310000)
+[App]    Check:
+[App]      1. Is the Ignition gateway running and the OPC UA server module enabled?
+[App]      2. Are the host and port in OpcUa:EndpointUrl (config/apps.json) correct?
+[App]      3. Is a firewall blocking the port?
+[App] Stopped.
+```
+
+**Other OPC UA errors** — any other status is shown with its name and hex code:
+
+```text
+[App] ❌ OPC UA error: <message from the OPC UA stack>
+[App]    Status: <StatusName> (0x<code>)
 ```
